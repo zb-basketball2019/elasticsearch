@@ -1080,13 +1080,7 @@ public class SharedClusterSnapshotRestoreIT extends AbstractSnapshotIntegTestCas
         );
 
         // Create index on 2 nodes and make sure each node has a primary by setting no replicas
-        assertAcked(
-            prepareCreate(
-                "test-idx",
-                2,
-                Settings.builder().put("number_of_replicas", 0).put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, randomIntBetween(2, 10))
-            )
-        );
+        assertAcked(prepareCreate("test-idx", 2, indexSettingsNoReplicas(randomIntBetween(2, 10))));
         indexRandomDocs("test-idx", 100);
 
         // Pick one node and block it
@@ -2238,8 +2232,7 @@ public class SharedClusterSnapshotRestoreIT extends AbstractSnapshotIntegTestCas
 
     private void verifySnapshotInfo(final GetSnapshotsResponse response, final Map<String, List<String>> indicesPerSnapshot) {
         for (SnapshotInfo snapshotInfo : response.getSnapshots()) {
-            final List<String> expected = snapshotInfo.indices();
-            assertEquals(expected, indicesPerSnapshot.get(snapshotInfo.snapshotId().getName()));
+            assertEquals(Set.copyOf(indicesPerSnapshot.get(snapshotInfo.snapshotId().getName())), Set.copyOf(snapshotInfo.indices()));
             assertEquals(SnapshotState.SUCCESS, snapshotInfo.state());
         }
     }

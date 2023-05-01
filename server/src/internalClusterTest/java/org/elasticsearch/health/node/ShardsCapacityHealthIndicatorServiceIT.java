@@ -9,13 +9,11 @@
 package org.elasticsearch.health.node;
 
 import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.health.HealthIndicatorResult;
 import org.elasticsearch.health.HealthService;
 import org.elasticsearch.health.HealthStatus;
 import org.elasticsearch.health.metadata.HealthMetadata;
-import org.elasticsearch.health.node.selection.HealthNode;
 import org.elasticsearch.test.ESIntegTestCase;
 import org.elasticsearch.test.InternalTestCluster;
 import org.elasticsearch.test.NodeRoles;
@@ -25,8 +23,6 @@ import org.junit.Before;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.elasticsearch.cluster.metadata.IndexMetadata.SETTING_NUMBER_OF_REPLICAS;
-import static org.elasticsearch.cluster.metadata.IndexMetadata.SETTING_NUMBER_OF_SHARDS;
 import static org.elasticsearch.cluster.node.DiscoveryNodeRole.DATA_FROZEN_NODE_ROLE;
 import static org.elasticsearch.indices.ShardLimitValidator.SETTING_CLUSTER_MAX_SHARDS_PER_NODE;
 import static org.hamcrest.Matchers.empty;
@@ -88,13 +84,15 @@ public class ShardsCapacityHealthIndicatorServiceIT extends ESIntegTestCase {
     }
 
     private void createIndex(int shards, int replicas) {
-        createIndex(INDEX_NAME, Settings.builder().put(SETTING_NUMBER_OF_SHARDS, shards).put(SETTING_NUMBER_OF_REPLICAS, replicas).build());
+        createIndex(INDEX_NAME, indexSettings(shards, replicas).build());
     }
 
     private HealthIndicatorResult fetchShardsCapacityIndicatorResult(InternalTestCluster internalCluster) throws Exception {
-        var healthNode = findHealthNode().getName();
-        var healthService = internalCluster.getInstance(HealthService.class, healthNode);
-        var healthIndicatorResults = getHealthServiceResults(healthService, healthNode);
+        var healthNode = ESIntegTestCase.waitAndGetHealthNode(internalCluster);
+        assertNotNull(healthNode);
+        var healthNodeName = healthNode.getName();
+        var healthService = internalCluster.getInstance(HealthService.class, healthNodeName);
+        var healthIndicatorResults = getHealthServiceResults(healthService, healthNodeName);
         assertThat(healthIndicatorResults, hasSize(1));
         return healthIndicatorResults.get(0);
     }
@@ -140,12 +138,5 @@ public class ShardsCapacityHealthIndicatorServiceIT extends ESIntegTestCase {
                 healthMetadata.getShardLimitsMetadata().maxShardsPerNodeFrozen() > 0
             );
         });
-    }
-
-    private static DiscoveryNode findHealthNode() {
-        var state = internalCluster().clusterService().state();
-        DiscoveryNode healthNode = HealthNode.findHealthNode(state);
-        assertNotNull(healthNode);
-        return healthNode;
     }
 }
