@@ -10,7 +10,6 @@ package org.elasticsearch.index.shard;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.store.LockObtainFailedException;
 import org.elasticsearch.ExceptionsHelper;
-import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
@@ -22,6 +21,7 @@ import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.InternalClusterInfoService;
 import org.elasticsearch.cluster.metadata.IndexMetadata;
 import org.elasticsearch.cluster.node.DiscoveryNode;
+import org.elasticsearch.cluster.node.TestDiscoveryNode;
 import org.elasticsearch.cluster.routing.RecoverySource;
 import org.elasticsearch.cluster.routing.ShardRouting;
 import org.elasticsearch.cluster.routing.ShardRoutingState;
@@ -51,7 +51,6 @@ import org.elasticsearch.index.engine.Engine;
 import org.elasticsearch.index.engine.NoOpEngine;
 import org.elasticsearch.index.flush.FlushStats;
 import org.elasticsearch.index.mapper.SourceToParse;
-import org.elasticsearch.index.seqno.ReplicationTracker;
 import org.elasticsearch.index.seqno.RetentionLeaseSyncer;
 import org.elasticsearch.index.seqno.SequenceNumbers;
 import org.elasticsearch.index.translog.TestTranslog;
@@ -161,7 +160,10 @@ public class IndexShardIT extends ESSingleNodeTestCase {
             Translog.Location lastWriteLocation = tlog.getLastWriteLocation();
             try {
                 // the lastWriteLocaltion has a Integer.MAX_VALUE size so we have to create a new one
-                return tlog.ensureSynced(new Translog.Location(lastWriteLocation.generation, lastWriteLocation.translogLocation, 0));
+                return tlog.ensureSynced(
+                    new Translog.Location(lastWriteLocation.generation, lastWriteLocation.translogLocation, 0),
+                    SequenceNumbers.UNASSIGNED_SEQ_NO
+                );
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
@@ -613,7 +615,7 @@ public class IndexShardIT extends ESSingleNodeTestCase {
     }
 
     public static final IndexShard recoverShard(IndexShard newShard) throws IOException {
-        DiscoveryNode localNode = new DiscoveryNode("foo", buildNewFakeTransportAddress(), emptyMap(), emptySet(), Version.CURRENT);
+        DiscoveryNode localNode = TestDiscoveryNode.create("foo", buildNewFakeTransportAddress(), emptyMap(), emptySet());
         newShard.markAsRecovering("store", new RecoveryState(newShard.routingEntry(), localNode, null));
         recoverFromStore(newShard);
         IndexShardTestCase.updateRoutingEntry(
@@ -648,13 +650,12 @@ public class IndexShardIT extends ESSingleNodeTestCase {
             null,
             Collections.emptyList(),
             Arrays.asList(listeners),
-            () -> {},
+            IndexShardTestCase.NOOP_GCP_SYNCER,
             RetentionLeaseSyncer.EMPTY,
             cbs,
             IndexModule.DEFAULT_SNAPSHOT_COMMIT_SUPPLIER,
             System::nanoTime,
-            null,
-            ReplicationTracker.DEFAULT_FACTORY
+            null
         );
     }
 

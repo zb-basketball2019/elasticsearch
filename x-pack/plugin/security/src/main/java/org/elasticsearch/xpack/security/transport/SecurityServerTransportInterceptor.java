@@ -41,6 +41,7 @@ import org.elasticsearch.xpack.core.security.authc.Authentication;
 import org.elasticsearch.xpack.core.security.authc.CrossClusterAccessSubjectInfo;
 import org.elasticsearch.xpack.core.security.transport.ProfileConfigurations;
 import org.elasticsearch.xpack.core.security.user.CrossClusterAccessUser;
+import org.elasticsearch.xpack.core.security.user.InternalUser;
 import org.elasticsearch.xpack.core.security.user.SystemUser;
 import org.elasticsearch.xpack.core.security.user.User;
 import org.elasticsearch.xpack.core.ssl.SSLService;
@@ -61,7 +62,7 @@ import java.util.function.Function;
 import static org.elasticsearch.core.Strings.format;
 import static org.elasticsearch.transport.RemoteClusterPortSettings.REMOTE_CLUSTER_PROFILE;
 import static org.elasticsearch.transport.RemoteClusterPortSettings.REMOTE_CLUSTER_SERVER_ENABLED;
-import static org.elasticsearch.transport.RemoteClusterPortSettings.TRANSPORT_VERSION_ADVANCED_REMOTE_CLUSTER_SECURITY;
+import static org.elasticsearch.transport.RemoteClusterPortSettings.TRANSPORT_VERSION_ADVANCED_REMOTE_CLUSTER_SECURITY_CCR;
 import static org.elasticsearch.xpack.security.transport.RemoteClusterCredentialsResolver.RemoteClusterCredentials;
 
 public class SecurityServerTransportInterceptor implements TransportInterceptor {
@@ -312,7 +313,7 @@ public class SecurityServerTransportInterceptor implements TransportInterceptor 
                 }
                 final String remoteClusterAlias = remoteClusterCredentials.clusterAlias();
 
-                if (connection.getTransportVersion().before(TRANSPORT_VERSION_ADVANCED_REMOTE_CLUSTER_SECURITY)) {
+                if (connection.getTransportVersion().before(TRANSPORT_VERSION_ADVANCED_REMOTE_CLUSTER_SECURITY_CCR)) {
                     throw illegalArgumentExceptionWithDebugLog(
                         "Settings for remote cluster ["
                             + remoteClusterAlias
@@ -335,7 +336,7 @@ public class SecurityServerTransportInterceptor implements TransportInterceptor 
                 assert authentication != null : "authentication must be present in security context";
 
                 final User user = authentication.getEffectiveSubject().getUser();
-                if (User.isInternal(user) && false == SystemUser.is(user)) {
+                if (user instanceof InternalUser && false == SystemUser.is(user)) {
                     final String message = "Internal user [" + user.principal() + "] should not be used for cross cluster requests";
                     assert false : message;
                     throw illegalArgumentExceptionWithDebugLog(message);
