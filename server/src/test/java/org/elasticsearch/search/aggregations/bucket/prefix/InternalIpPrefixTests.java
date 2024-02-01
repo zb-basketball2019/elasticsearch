@@ -13,7 +13,6 @@ import org.apache.lucene.util.BytesRef;
 import org.elasticsearch.common.network.InetAddresses;
 import org.elasticsearch.search.DocValueFormat;
 import org.elasticsearch.search.aggregations.InternalAggregations;
-import org.elasticsearch.search.aggregations.ParsedMultiBucketAggregation;
 import org.elasticsearch.test.InternalMultiBucketAggregationTestCase;
 import org.elasticsearch.test.MapMatcher;
 
@@ -36,12 +35,6 @@ public class InternalIpPrefixTests extends InternalMultiBucketAggregationTestCas
     @Override
     protected InternalIpPrefix createTestInstance(String name, Map<String, Object> metadata, InternalAggregations aggregations) {
         return createTestInstance(name, metadata, aggregations, randomPrefixLength(), randomMinDocCount());
-    }
-
-    @Override
-    protected Class<? extends ParsedMultiBucketAggregation<?>> implementationClass() {
-        // Deprecated high level rest client not supported
-        return null;
     }
 
     private int randomPrefixLength() {
@@ -101,7 +94,7 @@ public class InternalIpPrefixTests extends InternalMultiBucketAggregationTestCas
         int m = 0;
         int b = 0x80;
         for (int i = 0; i < prefixLength; i++) {
-            mask[m] |= b;
+            mask[m] |= (byte) b;
             b = b >> 1;
             if (b == 0) {
                 m++;

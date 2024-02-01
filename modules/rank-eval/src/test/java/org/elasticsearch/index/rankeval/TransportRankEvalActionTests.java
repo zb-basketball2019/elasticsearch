@@ -8,6 +8,7 @@
 
 package org.elasticsearch.index.rankeval;
 
+import org.apache.lucene.util.Constants;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.MultiSearchRequest;
 import org.elasticsearch.action.search.MultiSearchResponse;
@@ -20,6 +21,7 @@ import org.elasticsearch.env.Environment;
 import org.elasticsearch.script.ScriptService;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.test.ESTestCase;
+import org.elasticsearch.test.MockUtils;
 import org.elasticsearch.transport.TransportService;
 import org.elasticsearch.xcontent.NamedXContentRegistry;
 
@@ -29,9 +31,9 @@ import java.util.List;
 
 import static org.mockito.Mockito.mock;
 
-public class TransportRankEvalActionTests extends ESTestCase {
+public final class TransportRankEvalActionTests extends ESTestCase {
 
-    private Settings settings = Settings.builder()
+    private final Settings settings = Settings.builder()
         .put("path.home", createTempDir().toString())
         .put("node.name", "test-" + getTestName())
         .put(Environment.PATH_HOME_SETTING.getKey(), createTempDir().toString())
@@ -41,6 +43,8 @@ public class TransportRankEvalActionTests extends ESTestCase {
      * Test that request parameters like indicesOptions or searchType from ranking evaluation request are transfered to msearch request
      */
     public void testTransferRequestParameters() throws Exception {
+        assumeFalse("https://github.com/elastic/elasticsearch/issues/104570", Constants.WINDOWS);
+
         String indexName = "test_index";
         List<RatedRequest> specifications = new ArrayList<>();
         specifications.add(
@@ -74,10 +78,11 @@ public class TransportRankEvalActionTests extends ESTestCase {
             }
         };
 
+        TransportService transportService = MockUtils.setupTransportServiceWithThreadpoolExecutor();
         TransportRankEvalAction action = new TransportRankEvalAction(
             mock(ActionFilters.class),
             client,
-            mock(TransportService.class),
+            transportService,
             mock(ScriptService.class),
             NamedXContentRegistry.EMPTY
         );

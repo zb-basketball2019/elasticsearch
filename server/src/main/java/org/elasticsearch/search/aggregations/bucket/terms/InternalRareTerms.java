@@ -12,7 +12,6 @@ import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.util.SetBackedScalingCuckooFilter;
 import org.elasticsearch.search.DocValueFormat;
 import org.elasticsearch.search.aggregations.AggregationReduceContext;
-import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.BucketOrder;
 import org.elasticsearch.search.aggregations.InternalAggregation;
 import org.elasticsearch.search.aggregations.InternalAggregations;
@@ -80,7 +79,7 @@ public abstract class InternalRareTerms<A extends InternalRareTerms<A, B>, B ext
         }
 
         @Override
-        public Aggregations getAggregations() {
+        public InternalAggregations getAggregations() {
             return aggregations;
         }
 
@@ -142,9 +141,6 @@ public abstract class InternalRareTerms<A extends InternalRareTerms<A, B>, B ext
     public abstract List<B> getBuckets();
 
     @Override
-    public abstract B getBucketByKey(String term);
-
-    @Override
     public InternalAggregation reduce(List<InternalAggregation> aggregations, AggregationReduceContext reduceContext) {
         throw new UnsupportedOperationException();
     }
@@ -165,11 +161,6 @@ public abstract class InternalRareTerms<A extends InternalRareTerms<A, B>, B ext
     }
 
     protected abstract A createWithFilter(String name, List<B> buckets, SetBackedScalingCuckooFilter filter);
-
-    /**
-     * Create an array to hold some buckets. Used in collecting the results.
-     */
-    protected abstract B[] createBucketsArray(int size);
 
     @Override
     public boolean equals(Object obj) {

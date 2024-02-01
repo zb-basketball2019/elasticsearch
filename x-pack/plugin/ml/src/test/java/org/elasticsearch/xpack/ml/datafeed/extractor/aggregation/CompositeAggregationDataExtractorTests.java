@@ -7,32 +7,30 @@
 package org.elasticsearch.xpack.ml.datafeed.extractor.aggregation;
 
 import org.elasticsearch.action.ActionRequestBuilder;
-import org.elasticsearch.action.search.SearchAction;
 import org.elasticsearch.action.search.SearchPhaseExecutionException;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.client.internal.Client;
-import org.elasticsearch.common.collect.MapBuilder;
 import org.elasticsearch.core.TimeValue;
 import org.elasticsearch.core.Tuple;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.Aggregations;
-import org.elasticsearch.search.aggregations.bucket.composite.CompositeAggregation;
+import org.elasticsearch.search.aggregations.InternalAggregations;
 import org.elasticsearch.search.aggregations.bucket.composite.CompositeAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.composite.DateHistogramValuesSourceBuilder;
+import org.elasticsearch.search.aggregations.bucket.composite.InternalComposite;
 import org.elasticsearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.xpack.core.ml.datafeed.DatafeedTimingStats;
 import org.elasticsearch.xpack.core.ml.datafeed.SearchInterval;
-import org.elasticsearch.xpack.core.ml.datafeed.extractor.DataExtractor;
 import org.elasticsearch.xpack.ml.datafeed.DatafeedTimingStatsReporter;
 import org.elasticsearch.xpack.ml.datafeed.DatafeedTimingStatsReporter.DatafeedTimingStatsPersister;
+import org.elasticsearch.xpack.ml.datafeed.extractor.DataExtractor;
 import org.junit.Before;
 
 import java.io.BufferedReader;
@@ -123,13 +121,13 @@ public class CompositeAggregationDataExtractorTests extends ESTestCase {
             .subAggregation(AggregationBuilders.avg("responsetime").field("responsetime"));
         runtimeMappings = Collections.emptyMap();
         timingStatsReporter = new DatafeedTimingStatsReporter(new DatafeedTimingStats(jobId), mock(DatafeedTimingStatsPersister.class));
-        aggregatedSearchRequestBuilder = (searchSourceBuilder) -> new SearchRequestBuilder(testClient, SearchAction.INSTANCE).setSource(
-            searchSourceBuilder
-        ).setAllowPartialSearchResults(false).setIndices(indices.toArray(String[]::new));
+        aggregatedSearchRequestBuilder = (searchSourceBuilder) -> new SearchRequestBuilder(testClient).setSource(searchSourceBuilder)
+            .setAllowPartialSearchResults(false)
+            .setIndices(indices.toArray(String[]::new));
     }
 
     public void testExtraction() throws IOException {
-        List<CompositeAggregation.Bucket> compositeBucket = Arrays.asList(
+        List<InternalComposite.InternalBucket> compositeBucket = Arrays.asList(
             createCompositeBucket(
                 1000L,
                 "time_bucket",
@@ -163,11 +161,7 @@ public class CompositeAggregationDataExtractorTests extends ESTestCase {
 
         TestDataExtractor extractor = new TestDataExtractor(1000L, 4000L);
 
-        SearchResponse response = createSearchResponse(
-            "buckets",
-            compositeBucket,
-            MapBuilder.<String, Object>newMapBuilder().put("time_bucket", 4000L).put("airline", "d").map()
-        );
+        SearchResponse response = createSearchResponse("buckets", compositeBucket, Map.of("time_bucket", 4000L, "airline", "d"));
         extractor.setNextResponse(response);
 
         assertThat(extractor.hasNext(), is(true));
@@ -214,7 +208,7 @@ public class CompositeAggregationDataExtractorTests extends ESTestCase {
 
     public void testExtractionGivenResponseHasEmptyAggs() throws IOException {
         TestDataExtractor extractor = new TestDataExtractor(1000L, 2000L);
-        Aggregations emptyAggs = AggregationTestUtils.createAggs(Collections.emptyList());
+        InternalAggregations emptyAggs = AggregationTestUtils.createAggs(Collections.emptyList());
         SearchResponse response = createSearchResponse(emptyAggs);
         extractor.setNextResponse(response);
 
@@ -237,7 +231,7 @@ public class CompositeAggregationDataExtractorTests extends ESTestCase {
 
     public void testExtractionCancelOnFirstPage() throws IOException {
         int numBuckets = 10;
-        List<CompositeAggregation.Bucket> buckets = new ArrayList<>(numBuckets);
+        List<InternalComposite.InternalBucket> buckets = new ArrayList<>(numBuckets);
         long timestamp = 1000;
         for (int i = 0; i < numBuckets; i++) {
             buckets.add(
@@ -253,11 +247,7 @@ public class CompositeAggregationDataExtractorTests extends ESTestCase {
 
         TestDataExtractor extractor = new TestDataExtractor(1000L, timestamp + 1000 + 1);
 
-        SearchResponse response = createSearchResponse(
-            "buckets",
-            buckets,
-            MapBuilder.<String, Object>newMapBuilder().put("time_bucket", 1000L).put("airline", "d").map()
-        );
+        SearchResponse response = createSearchResponse("buckets", buckets, Map.of("time_bucket", 1000L, "airline", "d"));
         extractor.setNextResponse(response);
         extractor.cancel();
         // We should have next right now as we have not yet determined if we have handled a page or not
@@ -270,7 +260,7 @@ public class CompositeAggregationDataExtractorTests extends ESTestCase {
 
     public void testExtractionGivenCancelHalfWay() throws IOException {
         int numBuckets = 10;
-        List<CompositeAggregation.Bucket> buckets = new ArrayList<>(numBuckets);
+        List<InternalComposite.InternalBucket> buckets = new ArrayList<>(numBuckets);
         long timestamp = 1000;
         for (int i = 0; i < numBuckets; i++) {
             buckets.add(
@@ -286,11 +276,7 @@ public class CompositeAggregationDataExtractorTests extends ESTestCase {
 
         TestDataExtractor extractor = new TestDataExtractor(1000L, timestamp + 1000 + 1);
 
-        SearchResponse response = createSearchResponse(
-            "buckets",
-            buckets,
-            MapBuilder.<String, Object>newMapBuilder().put("time_bucket", 1000L).put("airline", "d").map()
-        );
+        SearchResponse response = createSearchResponse("buckets", buckets, Map.of("time_bucket", 1000L, "airline", "d"));
         extractor.setNextResponse(response);
 
         assertThat(extractor.hasNext(), is(true));
@@ -319,11 +305,7 @@ public class CompositeAggregationDataExtractorTests extends ESTestCase {
                 )
             );
         }
-        response = createSearchResponse(
-            "buckets",
-            buckets,
-            MapBuilder.<String, Object>newMapBuilder().put("time_bucket", 3000L).put("airline", "a").map()
-        );
+        response = createSearchResponse("buckets", buckets, Map.of("time_bucket", 3000L, "airline", "a"));
         extractor.setNextResponse(response);
         extractor.cancel();
         assertThat(extractor.hasNext(), is(true));
@@ -363,17 +345,21 @@ public class CompositeAggregationDataExtractorTests extends ESTestCase {
     }
 
     @SuppressWarnings("unchecked")
-    private SearchResponse createSearchResponse(String aggName, List<CompositeAggregation.Bucket> buckets, Map<String, Object> afterKey) {
-        CompositeAggregation compositeAggregation = mock(CompositeAggregation.class);
+    private SearchResponse createSearchResponse(
+        String aggName,
+        List<InternalComposite.InternalBucket> buckets,
+        Map<String, Object> afterKey
+    ) {
+        InternalComposite compositeAggregation = mock(InternalComposite.class);
         when(compositeAggregation.getName()).thenReturn(aggName);
         when(compositeAggregation.afterKey()).thenReturn(afterKey);
-        when((List<CompositeAggregation.Bucket>) compositeAggregation.getBuckets()).thenReturn(buckets);
+        when(compositeAggregation.getBuckets()).thenReturn(buckets);
 
-        Aggregations searchAggs = AggregationTestUtils.createAggs(Collections.singletonList(compositeAggregation));
+        InternalAggregations searchAggs = AggregationTestUtils.createAggs(Collections.singletonList(compositeAggregation));
         return createSearchResponse(searchAggs);
     }
 
-    private SearchResponse createSearchResponse(Aggregations aggregations) {
+    private SearchResponse createSearchResponse(InternalAggregations aggregations) {
         SearchResponse searchResponse = mock(SearchResponse.class);
         when(searchResponse.status()).thenReturn(RestStatus.OK);
         when(searchResponse.getScrollId()).thenReturn(randomAlphaOfLength(1000));
